@@ -8,48 +8,30 @@ import {
   getSelectedAnalysisId,
   updateAnalysisEntry,
 } from "../lib/history";
+import {
+  computeFinalScore,
+  flattenExtractedSkills,
+  normalizeSkillConfidenceMap,
+} from "../lib/schema";
 
 const KNOW = "know";
 const PRACTICE = "practice";
+
+const CATEGORY_LABELS = {
+  coreCS: "Core CS",
+  languages: "Languages",
+  web: "Web",
+  data: "Data",
+  cloud: "Cloud/DevOps",
+  testing: "Testing",
+  other: "Other",
+};
 
 function getEntryFromLocation(location) {
   const params = new URLSearchParams(location.search);
   const queryId = params.get("id") || "";
   const selectedId = queryId || getSelectedAnalysisId();
   return getAnalysisById(selectedId) || getLatestAnalysis();
-}
-
-function flattenSkills(extractedSkills) {
-  return Object.values(extractedSkills || {}).flat();
-}
-
-function buildSkillConfidenceMap(entry) {
-  const existing = entry.skillConfidenceMap || {};
-  const skills = flattenSkills(entry.extractedSkills);
-  const map = {};
-
-  skills.forEach((skill) => {
-    const value = existing[skill];
-    map[skill] = value === KNOW ? KNOW : PRACTICE;
-  });
-
-  return map;
-}
-
-function clampScore(value) {
-  return Math.max(0, Math.min(100, value));
-}
-
-function calculateLiveScore(baseScore, confidenceMap) {
-  const delta = Object.values(confidenceMap).reduce((acc, value) => {
-    if (value === KNOW) {
-      return acc + 2;
-    }
-
-    return acc - 2;
-  }, 0);
-
-  return clampScore(baseScore + delta);
 }
 
 function copyText(text) {
@@ -66,8 +48,8 @@ function copyText(text) {
   return Promise.resolve();
 }
 
-function toPlanText(plan) {
-  return (plan || [])
+function toPlanText(plan7Days) {
+  return (plan7Days || [])
     .map((day) => {
       const tasks = (day.tasks || []).map((task) => `- ${task}`).join("\n");
       return `${day.day}: ${day.focus}\n${tasks}`;
@@ -76,8 +58,8 @@ function toPlanText(plan) {
 }
 
 function toChecklistText(checklist) {
-  return Object.entries(checklist || {})
-    .map(([round, items]) => `${round}\n${(items || []).map((item) => `- ${item}`).join("\n")}`)
+  return (checklist || [])
+    .map((round) => `${round.roundTitle}\n${(round.items || []).map((item) => `- ${item}`).join("\n")}`)
     .join("\n\n");
 }
 
@@ -86,11 +68,20 @@ function toQuestionsText(questions) {
 }
 
 function toSkillsText(extractedSkills, confidenceMap) {
-  return Object.entries(extractedSkills || {})
-    .map(
-      ([category, skills]) =>
-        `${category}:\n${skills.map((skill) => `- ${skill} (${confidenceMap[skill] === KNOW ? "I know this" : "Need practice"})`).join("\n")}`
-    )
+  return Object.entries(CATEGORY_LABELS)
+    .map(([key, label]) => {
+      const skills = extractedSkills?.[key] || [];
+      if (!skills.length) {
+        return null;
+      }
+
+      const list = skills
+        .map((skill) => `- ${skill} (${confidenceMap[skill] === KNOW ? "I know this" : "Need practice"})`)
+        .join("\n");
+
+      return `${label}:\n${list}`;
+    })
+    .filter(Boolean)
     .join("\n\n");
 }
 
@@ -107,19 +98,16 @@ function downloadTextFile(filename, text) {
 }
 
 function getCompanyValue(company) {
-  if (!company || company === "Not specified") {
-    return "";
-  }
-
-  return company;
+  return company || "";
 }
 
 function getDerivedIntelAndMapping(entry) {
   const company = getCompanyValue(entry.company);
-  const companyIntel =
-    entry.companyIntel || buildCompanyIntel({ company, role: entry.role, jdText: entry.jdText });
+  const companyIntel = entry.companyIntel || buildCompanyIntel({ company, role: entry.role, jdText: entry.jdText });
   const roundMapping =
-    entry.roundMapping || buildRoundMapping({ companyIntel, extractedSkills: entry.extractedSkills });
+    entry.roundMapping && entry.roundMapping.length
+      ? entry.roundMapping
+      : buildRoundMapping({ companyIntel, extractedSkills: entry.extractedSkills });
 
   return {
     companyIntel,
@@ -142,9 +130,7 @@ export default function ResultsPage() {
     }
 
     const { companyIntel, roundMapping } = getDerivedIntelAndMapping(entry);
-    const hasIntelField = Object.prototype.hasOwnProperty.call(entry, "companyIntel");
-    const hasRoundMappingField = Array.isArray(entry.roundMapping);
-    const needsPersist = !hasIntelField || !hasRoundMappingField;
+    const needsPersist = !Object.prototype.hasOwnProperty.call(entry, "companyIntel") || !entry.roundMapping?.length;
 
     if (!needsPersist) {
       return;
@@ -161,22 +147,6 @@ export default function ResultsPage() {
     }
   }, [entry]);
 
-  const skillConfidenceMap = useMemo(() => {
-    if (!entry) {
-      return {};
-    }
-
-    return buildSkillConfidenceMap(entry);
-  }, [entry]);
-
-  const baseReadinessScore = entry?.baseReadinessScore ?? entry?.readinessScore ?? 0;
-  const liveReadinessScore = useMemo(
-    () => calculateLiveScore(baseReadinessScore, skillConfidenceMap),
-    [baseReadinessScore, skillConfidenceMap]
-  );
-
-  const skillGroups = useMemo(() => Object.entries(entry?.extractedSkills || {}), [entry]);
-  const checklistRounds = useMemo(() => Object.entries(entry?.checklist || {}), [entry]);
   const { companyIntel, roundMapping } = useMemo(() => {
     if (!entry) {
       return { companyIntel: null, roundMapping: [] };
@@ -184,22 +154,50 @@ export default function ResultsPage() {
 
     return getDerivedIntelAndMapping(entry);
   }, [entry]);
-  const weakSkills = useMemo(
-    () => Object.entries(skillConfidenceMap).filter(([, value]) => value === PRACTICE).map(([skill]) => skill),
-    [skillConfidenceMap]
-  );
+
+  const skillConfidenceMap = useMemo(() => {
+    if (!entry) {
+      return {};
+    }
+
+    return normalizeSkillConfidenceMap(entry.skillConfidenceMap, entry.extractedSkills);
+  }, [entry]);
+
+  const liveFinalScore = useMemo(() => {
+    if (!entry) {
+      return 0;
+    }
+
+    return computeFinalScore(entry.baseScore, skillConfidenceMap);
+  }, [entry, skillConfidenceMap]);
+
+  const skillGroups = useMemo(() => {
+    if (!entry) {
+      return [];
+    }
+
+    return Object.entries(CATEGORY_LABELS)
+      .map(([key, label]) => ({ key, label, skills: entry.extractedSkills?.[key] || [] }))
+      .filter((group) => group.skills.length > 0);
+  }, [entry]);
+
+  const weakSkills = useMemo(() => {
+    return flattenExtractedSkills(entry?.extractedSkills || {}).filter(
+      (skill) => skillConfidenceMap[skill] === PRACTICE
+    );
+  }, [entry, skillConfidenceMap]);
 
   const persistEntry = (nextConfidenceMap) => {
     if (!entry) {
       return;
     }
 
-    const nextScore = calculateLiveScore(baseReadinessScore, nextConfidenceMap);
+    const nextScore = computeFinalScore(entry.baseScore, nextConfidenceMap);
     const updated = updateAnalysisEntry(entry.id, {
       ...entry,
-      baseReadinessScore,
-      readinessScore: nextScore,
       skillConfidenceMap: nextConfidenceMap,
+      finalScore: nextScore,
+      updatedAt: new Date().toISOString(),
     });
 
     if (updated) {
@@ -231,20 +229,30 @@ export default function ResultsPage() {
     }
 
     const content = [
-      `Placement Readiness Analysis`,
-      `Company: ${entry.company}`,
-      `Role: ${entry.role}`,
+      "Placement Readiness Analysis",
+      `Company: ${entry.company || ""}`,
+      `Role: ${entry.role || ""}`,
       `Generated On: ${new Date(entry.createdAt).toLocaleString()}`,
-      `Readiness Score: ${liveReadinessScore}/100`,
+      `Last Updated: ${new Date(entry.updatedAt).toLocaleString()}`,
+      `Base Score: ${entry.baseScore}/100`,
+      `Final Score: ${liveFinalScore}/100`,
       "",
       "Key Skills Extracted",
       toSkillsText(entry.extractedSkills, skillConfidenceMap),
+      "",
+      "Round Mapping",
+      (roundMapping || [])
+        .map(
+          (round) =>
+            `${round.roundTitle}\nFocus: ${(round.focusAreas || []).join(", ")}\nWhy this round matters: ${round.whyItMatters}`
+        )
+        .join("\n\n"),
       "",
       "Round-wise Preparation Checklist",
       toChecklistText(entry.checklist),
       "",
       "7-Day Plan",
-      toPlanText(entry.plan),
+      toPlanText(entry.plan7Days),
       "",
       "10 Likely Interview Questions",
       toQuestionsText(entry.questions),
@@ -259,11 +267,6 @@ export default function ResultsPage() {
             companyIntel.note,
           ].join("\n")
         : "Not available",
-      "",
-      "Round Mapping",
-      (roundMapping || [])
-        .map((round) => `${round.title}\nFocus: ${round.focus}\nWhy this round matters: ${round.why}`)
-        .join("\n\n"),
     ].join("\n");
 
     const safeCompany = (entry.company || "company").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -293,24 +296,26 @@ export default function ResultsPage() {
         <CardHeader>
           <CardTitle>Analysis Result</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-4">
+        <CardContent className="grid gap-4 md:grid-cols-5">
           <div className="rounded-lg bg-indigo-50 p-4">
             <p className="text-xs uppercase text-slate-500">Company</p>
-            <p className="mt-1 font-semibold text-slate-900">{entry.company}</p>
+            <p className="mt-1 font-semibold text-slate-900">{entry.company || "-"}</p>
           </div>
           <div className="rounded-lg bg-indigo-50 p-4">
             <p className="text-xs uppercase text-slate-500">Role</p>
-            <p className="mt-1 font-semibold text-slate-900">{entry.role}</p>
+            <p className="mt-1 font-semibold text-slate-900">{entry.role || "-"}</p>
           </div>
           <div className="rounded-lg bg-indigo-50 p-4">
-            <p className="text-xs uppercase text-slate-500">Readiness Score</p>
-            <p className="mt-1 text-2xl font-bold text-indigo-700">{liveReadinessScore}/100</p>
+            <p className="text-xs uppercase text-slate-500">Base Score</p>
+            <p className="mt-1 text-xl font-bold text-slate-700">{entry.baseScore}/100</p>
           </div>
           <div className="rounded-lg bg-indigo-50 p-4">
-            <p className="text-xs uppercase text-slate-500">Generated On</p>
-            <p className="mt-1 font-semibold text-slate-900">
-              {new Date(entry.createdAt).toLocaleString()}
-            </p>
+            <p className="text-xs uppercase text-slate-500">Final Score</p>
+            <p className="mt-1 text-2xl font-bold text-indigo-700">{liveFinalScore}/100</p>
+          </div>
+          <div className="rounded-lg bg-indigo-50 p-4">
+            <p className="text-xs uppercase text-slate-500">Updated</p>
+            <p className="mt-1 font-semibold text-slate-900">{new Date(entry.updatedAt).toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>
@@ -320,14 +325,14 @@ export default function ResultsPage() {
           <CardTitle>Key Skills Extracted</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {skillGroups.map(([category, tags]) => (
-            <div key={category}>
-              <p className="mb-2 text-sm font-semibold text-slate-700">{category}</p>
+          {skillGroups.map((group) => (
+            <div key={group.key}>
+              <p className="mb-2 text-sm font-semibold text-slate-700">{group.label}</p>
               <div className="flex flex-wrap gap-3">
-                {(tags || []).map((skill) => {
+                {group.skills.map((skill) => {
                   const selected = skillConfidenceMap[skill] || PRACTICE;
                   return (
-                    <div key={`${category}-${skill}`} className="rounded-xl border border-indigo-200 bg-indigo-50 p-2">
+                    <div key={`${group.key}-${skill}`} className="rounded-xl border border-indigo-200 bg-indigo-50 p-2">
                       <p className="text-xs font-semibold text-indigo-700">{skill}</p>
                       <div className="mt-2 flex gap-2">
                         <button
@@ -398,15 +403,15 @@ export default function ResultsPage() {
         <CardContent>
           <div className="space-y-4">
             {(roundMapping || []).map((round, index) => (
-              <div key={`${round.title}-${index}`} className="relative pl-8">
+              <div key={`${round.roundTitle}-${index}`} className="relative pl-8">
                 <span className="absolute left-2 top-2 h-3 w-3 rounded-full bg-indigo-600" />
                 {index !== (roundMapping || []).length - 1 ? (
                   <span className="absolute left-[11px] top-5 h-[calc(100%-8px)] w-px bg-indigo-200" />
                 ) : null}
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-semibold text-slate-900">{round.title}</p>
-                  <p className="mt-1 text-sm text-slate-700">{round.focus}</p>
-                  <p className="mt-2 text-xs text-slate-500">Why this round matters: {round.why}</p>
+                  <p className="text-sm font-semibold text-slate-900">{round.roundTitle}</p>
+                  <p className="mt-1 text-sm text-slate-700">Focus: {(round.focusAreas || []).join(", ")}</p>
+                  <p className="mt-2 text-xs text-slate-500">Why this round matters: {round.whyItMatters}</p>
                 </div>
               </div>
             ))}
@@ -422,7 +427,7 @@ export default function ResultsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => handleCopy(toPlanText(entry.plan), "Copied 7-day plan.")}
+              onClick={() => handleCopy(toPlanText(entry.plan7Days), "Copied 7-day plan.")}
               className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-300"
             >
               Copy 7-day plan
@@ -459,12 +464,12 @@ export default function ResultsPage() {
             <CardTitle>Round-wise Preparation Checklist</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {checklistRounds.map(([round, items]) => (
-              <div key={round}>
-                <p className="text-sm font-semibold text-slate-700">{round}</p>
+            {(entry.checklist || []).map((round) => (
+              <div key={round.roundTitle}>
+                <p className="text-sm font-semibold text-slate-700">{round.roundTitle}</p>
                 <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-600">
-                  {(items || []).map((item) => (
-                    <li key={`${round}-${item}`}>{item}</li>
+                  {(round.items || []).map((item) => (
+                    <li key={`${round.roundTitle}-${item}`}>{item}</li>
                   ))}
                 </ul>
               </div>
@@ -477,7 +482,7 @@ export default function ResultsPage() {
             <CardTitle>7-Day Plan</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-slate-600">
-            {(entry.plan || []).map((dayItem) => (
+            {(entry.plan7Days || []).map((dayItem) => (
               <div key={dayItem.day} className="rounded-lg border border-slate-200 p-3">
                 <p className="font-semibold text-slate-800">
                   {dayItem.day}: {dayItem.focus}

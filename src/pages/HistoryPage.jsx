@@ -1,11 +1,17 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { getHistory, setSelectedAnalysisId } from "../lib/history";
+import { getHistoryState, setSelectedAnalysisId } from "../lib/history";
 
 export default function HistoryPage() {
   const navigate = useNavigate();
-  const history = useMemo(() => getHistory(), []);
+  const { history, hadCorrupted } = useMemo(() => {
+    const state = getHistoryState();
+    return {
+      history: state.entries,
+      hadCorrupted: state.hadCorrupted,
+    };
+  }, []);
 
   const openResult = (id) => {
     setSelectedAnalysisId(id);
@@ -18,6 +24,11 @@ export default function HistoryPage() {
         <CardTitle>Analysis History</CardTitle>
       </CardHeader>
       <CardContent>
+        {hadCorrupted ? (
+          <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            One saved entry couldn't be loaded. Create a new analysis.
+          </p>
+        ) : null}
         {!history.length ? (
           <p className="text-sm text-slate-600">No entries yet. Run analysis from Practice page.</p>
         ) : (
@@ -35,7 +46,7 @@ export default function HistoryPage() {
                     <p className="text-sm text-slate-600">{item.role}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-indigo-700">Score: {item.readinessScore}/100</p>
+                    <p className="text-sm font-semibold text-indigo-700">Score: {item.finalScore}/100</p>
                     <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
