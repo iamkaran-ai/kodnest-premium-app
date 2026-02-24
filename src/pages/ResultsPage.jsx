@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { buildCompanyIntel, buildRoundMapping } from "../lib/analysis";
 import {
   getAnalysisById,
   getLatestAnalysis,
@@ -105,6 +106,27 @@ function downloadTextFile(filename, text) {
   URL.revokeObjectURL(url);
 }
 
+function getCompanyValue(company) {
+  if (!company || company === "Not specified") {
+    return "";
+  }
+
+  return company;
+}
+
+function getDerivedIntelAndMapping(entry) {
+  const company = getCompanyValue(entry.company);
+  const companyIntel =
+    entry.companyIntel || buildCompanyIntel({ company, role: entry.role, jdText: entry.jdText });
+  const roundMapping =
+    entry.roundMapping || buildRoundMapping({ companyIntel, extractedSkills: entry.extractedSkills });
+
+  return {
+    companyIntel,
+    roundMapping,
+  };
+}
+
 export default function ResultsPage() {
   const location = useLocation();
   const [entry, setEntry] = useState(() => getEntryFromLocation(location));
@@ -113,6 +135,31 @@ export default function ResultsPage() {
   useEffect(() => {
     setEntry(getEntryFromLocation(location));
   }, [location.search]);
+
+  useEffect(() => {
+    if (!entry) {
+      return;
+    }
+
+    const { companyIntel, roundMapping } = getDerivedIntelAndMapping(entry);
+    const hasIntelField = Object.prototype.hasOwnProperty.call(entry, "companyIntel");
+    const hasRoundMappingField = Array.isArray(entry.roundMapping);
+    const needsPersist = !hasIntelField || !hasRoundMappingField;
+
+    if (!needsPersist) {
+      return;
+    }
+
+    const updated = updateAnalysisEntry(entry.id, {
+      ...entry,
+      companyIntel,
+      roundMapping,
+    });
+
+    if (updated) {
+      setEntry(updated);
+    }
+  }, [entry]);
 
   const skillConfidenceMap = useMemo(() => {
     if (!entry) {
@@ -130,6 +177,13 @@ export default function ResultsPage() {
 
   const skillGroups = useMemo(() => Object.entries(entry?.extractedSkills || {}), [entry]);
   const checklistRounds = useMemo(() => Object.entries(entry?.checklist || {}), [entry]);
+  const { companyIntel, roundMapping } = useMemo(() => {
+    if (!entry) {
+      return { companyIntel: null, roundMapping: [] };
+    }
+
+    return getDerivedIntelAndMapping(entry);
+  }, [entry]);
   const weakSkills = useMemo(
     () => Object.entries(skillConfidenceMap).filter(([, value]) => value === PRACTICE).map(([skill]) => skill),
     [skillConfidenceMap]
@@ -194,6 +248,22 @@ export default function ResultsPage() {
       "",
       "10 Likely Interview Questions",
       toQuestionsText(entry.questions),
+      "",
+      "Company Intel",
+      companyIntel
+        ? [
+            `Company: ${companyIntel.companyName}`,
+            `Industry: ${companyIntel.industry}`,
+            `Estimated Size: ${companyIntel.sizeCategory}`,
+            `Typical Hiring Focus: ${companyIntel.hiringFocus}`,
+            companyIntel.note,
+          ].join("\n")
+        : "Not available",
+      "",
+      "Round Mapping",
+      (roundMapping || [])
+        .map((round) => `${round.title}\nFocus: ${round.focus}\nWhy this round matters: ${round.why}`)
+        .join("\n\n"),
     ].join("\n");
 
     const safeCompany = (entry.company || "company").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
@@ -289,6 +359,58 @@ export default function ResultsPage() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {companyIntel ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Intel</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg bg-indigo-50 p-3">
+                <p className="text-xs uppercase text-slate-500">Company</p>
+                <p className="mt-1 font-semibold text-slate-900">{companyIntel.companyName}</p>
+              </div>
+              <div className="rounded-lg bg-indigo-50 p-3">
+                <p className="text-xs uppercase text-slate-500">Industry</p>
+                <p className="mt-1 font-semibold text-slate-900">{companyIntel.industry}</p>
+              </div>
+              <div className="rounded-lg bg-indigo-50 p-3">
+                <p className="text-xs uppercase text-slate-500">Estimated Size</p>
+                <p className="mt-1 font-semibold text-slate-900">{companyIntel.sizeCategory}</p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+              <p className="text-sm font-semibold text-indigo-700">Typical Hiring Focus</p>
+              <p className="mt-1 text-sm text-slate-700">{companyIntel.hiringFocus}</p>
+            </div>
+            <p className="text-xs text-slate-500">{companyIntel.note}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Round Mapping</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {(roundMapping || []).map((round, index) => (
+              <div key={`${round.title}-${index}`} className="relative pl-8">
+                <span className="absolute left-2 top-2 h-3 w-3 rounded-full bg-indigo-600" />
+                {index !== (roundMapping || []).length - 1 ? (
+                  <span className="absolute left-[11px] top-5 h-[calc(100%-8px)] w-px bg-indigo-200" />
+                ) : null}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{round.title}</p>
+                  <p className="mt-1 text-sm text-slate-700">{round.focus}</p>
+                  <p className="mt-2 text-xs text-slate-500">Why this round matters: {round.why}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

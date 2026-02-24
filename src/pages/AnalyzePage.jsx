@@ -22,6 +22,8 @@ export default function AnalyzePage() {
       plan: analysis.plan,
       checklist: analysis.checklist,
       questions: analysis.questions,
+      companyIntel: analysis.companyIntel,
+      roundMapping: analysis.roundMapping,
       baseReadinessScore: analysis.readinessScore,
       readinessScore: analysis.readinessScore,
       skillConfidenceMap: {},

@@ -53,6 +53,34 @@ function unique(items) {
   return [...new Set(items)];
 }
 
+const ENTERPRISE_COMPANIES = [
+  "amazon",
+  "infosys",
+  "tcs",
+  "wipro",
+  "accenture",
+  "ibm",
+  "microsoft",
+  "google",
+  "meta",
+  "oracle",
+  "cognizant",
+  "hcl",
+  "deloitte",
+  "capgemini",
+];
+
+const MID_SIZE_COMPANIES = [
+  "zoho",
+  "freshworks",
+  "razorpay",
+  "postman",
+  "swiggy",
+  "zomato",
+  "paytm",
+  "cred",
+];
+
 function buildRoundItems(base, contextual) {
   const merged = unique([...base, ...contextual]);
   if (merged.length >= 5) {
@@ -173,6 +201,128 @@ export function calculateReadinessScore({ company, role, jdText, detectedCategor
   }
 
   return Math.min(score, 100);
+}
+
+export function buildCompanyIntel({ company, role, jdText }) {
+  const normalizedCompany = (company || "").trim();
+  if (!normalizedCompany) {
+    return null;
+  }
+
+  const companyLower = normalizedCompany.toLowerCase();
+  const context = `${normalizedCompany} ${role || ""} ${jdText || ""}`.toLowerCase();
+
+  let sizeCategory = "Startup (<200)";
+  if (ENTERPRISE_COMPANIES.some((name) => companyLower.includes(name))) {
+    sizeCategory = "Enterprise (2000+)";
+  } else if (MID_SIZE_COMPANIES.some((name) => companyLower.includes(name))) {
+    sizeCategory = "Mid-size (200–2000)";
+  }
+
+  let industry = "Technology Services";
+  if (/\b(bank|finance|fintech|payments?)\b/.test(context)) {
+    industry = "FinTech";
+  } else if (/\bhealth|hospital|medtech|pharma\b/.test(context)) {
+    industry = "Healthcare Tech";
+  } else if (/\be-?commerce|retail|marketplace\b/.test(context)) {
+    industry = "E-commerce";
+  } else if (/\bedtech|education|learning\b/.test(context)) {
+    industry = "EdTech";
+  } else if (/\bcloud|saas|platform\b/.test(context)) {
+    industry = "Cloud / SaaS";
+  }
+
+  const hiringFocus =
+    sizeCategory === "Enterprise (2000+)"
+      ? "Structured DSA rounds with strong core fundamentals and consistent communication."
+      : sizeCategory === "Startup (<200)"
+        ? "Practical problem solving, ownership mindset, and stack depth for fast execution."
+        : "Balanced evaluation: coding fundamentals, applied project depth, and collaboration skills.";
+
+  return {
+    companyName: normalizedCompany,
+    industry,
+    sizeCategory,
+    hiringFocus,
+    note: "Demo Mode: Company intel generated heuristically.",
+  };
+}
+
+export function buildRoundMapping({ companyIntel, extractedSkills }) {
+  const skills = Object.values(extractedSkills || {}).flat();
+  const hasDSA = skills.includes("DSA");
+  const hasCore = ["OOP", "DBMS", "OS", "Networks"].some((skill) => skills.includes(skill));
+  const hasWebStack = ["React", "Next.js", "Node.js", "Express"].some((skill) => skills.includes(skill));
+  const hasData = ["SQL", "MongoDB", "PostgreSQL", "MySQL", "Redis"].some((skill) => skills.includes(skill));
+  const sizeCategory = companyIntel?.sizeCategory || "Startup (<200)";
+
+  if (sizeCategory === "Enterprise (2000+)") {
+    return [
+      {
+        title: "Round 1: Online Test",
+        focus: hasDSA ? "DSA + Aptitude" : "Aptitude + Programming Basics",
+        why: "Large hiring funnels use standardized tests to filter for consistency at scale.",
+      },
+      {
+        title: "Round 2: Technical",
+        focus: hasCore ? "DSA + Core CS" : "Coding + Fundamentals",
+        why: "Interviewers validate depth in problem solving and conceptual computer science fundamentals.",
+      },
+      {
+        title: "Round 3: Tech + Projects",
+        focus: hasWebStack || hasData ? "Project architecture + stack decisions" : "Project execution + debugging depth",
+        why: "This round checks real-world delivery skills beyond theoretical knowledge.",
+      },
+      {
+        title: "Round 4: HR",
+        focus: "Behavioral fit + communication",
+        why: "Final alignment on role expectations, teamwork style, and long-term fit.",
+      },
+    ];
+  }
+
+  if (sizeCategory === "Mid-size (200–2000)") {
+    return [
+      {
+        title: "Round 1: Coding Screen",
+        focus: hasDSA ? "Problem solving + DSA" : "Practical coding + logic",
+        why: "Mid-size teams prioritize engineers who can contribute quickly with sound coding judgment.",
+      },
+      {
+        title: "Round 2: Technical Deep Dive",
+        focus: hasCore ? "Core CS + implementation tradeoffs" : "Design decisions + code quality",
+        why: "The team evaluates whether you can reason through tradeoffs in realistic technical scenarios.",
+      },
+      {
+        title: "Round 3: Projects + Team Fit",
+        focus: hasWebStack || hasData ? "Project architecture walkthrough" : "Impact and ownership stories",
+        why: "They need confidence that you can deliver with cross-functional teams.",
+      },
+      {
+        title: "Round 4: HR / Managerial",
+        focus: "Culture alignment + growth potential",
+        why: "Confirms communication, accountability, and long-term contribution expectations.",
+      },
+    ];
+  }
+
+  return [
+    {
+      title: "Round 1: Practical Coding",
+      focus: hasWebStack ? "Feature-focused coding on your stack" : "Hands-on coding + debugging",
+      why: "Startups optimize for immediate execution, so applied coding ability is prioritized early.",
+    },
+    {
+      title: "Round 2: System Discussion",
+      focus: hasWebStack || hasData ? "Architecture + API/data tradeoffs" : "Problem decomposition + implementation plan",
+      why: "Small teams need engineers who can make pragmatic design decisions independently.",
+    },
+    {
+      title: "Round 3: Culture Fit",
+      focus: "Ownership mindset + collaboration",
+      why: "High-velocity teams look for accountability, communication, and adaptability.",
+    },
+  ];
 }
 
 export function buildChecklist(extractedSkills) {
@@ -342,6 +492,7 @@ export function buildSevenDayPlan(extractedSkills) {
 
 export function buildAnalysis({ company, role, jdText }) {
   const { extractedSkills, detectedCategoryCount, detectedFlatSkills } = extractSkillsByCategory(jdText);
+  const companyIntel = buildCompanyIntel({ company, role, jdText });
   const readinessScore = calculateReadinessScore({
     company,
     role,
@@ -352,6 +503,7 @@ export function buildAnalysis({ company, role, jdText }) {
   const checklist = buildChecklist(extractedSkills);
   const plan = buildSevenDayPlan(extractedSkills);
   const questions = pickQuestionsFromSkills(detectedFlatSkills);
+  const roundMapping = buildRoundMapping({ companyIntel, extractedSkills });
 
   return {
     extractedSkills,
@@ -359,5 +511,7 @@ export function buildAnalysis({ company, role, jdText }) {
     checklist,
     questions,
     readinessScore,
+    companyIntel,
+    roundMapping,
   };
 }
