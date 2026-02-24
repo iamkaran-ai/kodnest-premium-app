@@ -20,6 +20,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./com
 import AnalyzePage from "./pages/AnalyzePage";
 import HistoryPage from "./pages/HistoryPage";
 import ResultsPage from "./pages/ResultsPage";
+import ShipGatePage from "./pages/ShipGatePage";
+import TestChecklistPage from "./pages/TestChecklistPage";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -383,6 +385,12 @@ export default function App() {
       </Route>
       <Route path="/history" element={<DashboardShell />}>
         <Route index element={<HistoryPage />} />
+      </Route>
+      <Route path="/prp/07-test" element={<DashboardShell />}>
+        <Route index element={<TestChecklistPage />} />
+      </Route>
+      <Route path="/prp/08-ship" element={<DashboardShell />}>
+        <Route index element={<ShipGatePage />} />
       </Route>
     </Routes>
   );
