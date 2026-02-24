@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>KodNest Premium Build System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <div class="top-bar__left">
+          <span class="top-bar__project-name">KodNest Premium Build System</span>
+        </div>
+        <div class="top-bar__center">
+          <span class="top-bar__step">Step 1 / 4</span>
+        </div>
+        <div class="top-bar__right">
+          <span class="status-badge status-badge--not-started">Not Started</span>
+        </div>
+      </header>
+
+      <!-- Context Header -->
+      <section class="context-header">
+        <div class="context-header__inner">
+          <h1 class="context-header__title">
+            Define a calm, coherent build surface.
+          </h1>
+          <p class="context-header__subtitle text-block">
+            This workspace shapes how KodNest assembles premium experiences&mdash;measured,
+            predictable, and ready for serious product work.
+          </p>
+        </div>
+      </section>
+
+      <!-- Main Workspace -->
+      <main class="main-layout">
+        <div class="workspace-grid">
+          <!-- Primary Workspace (70%) -->
+          <section class="primary-workspace">
+            <div class="card card--primary">
+              <header class="card__header">
+                <h2 class="card__title">Interaction canvas</h2>
+                <p class="card__subtitle">
+                  A stable surface for assembling flows, states, and proof.
+                </p>
+              </header>
+              <div class="card__body">
+                <div class="empty-state">
+                  <h3 class="empty-state__title">No components placed yet</h3>
+                  <p class="empty-state__body text-block">
+                    This area will hold the primary interaction for the current step.
+                    When you introduce modules, keep them focused and give each enough space
+                    to breathe.
+                  </p>
+                  <div class="empty-state__actions">
+                    <button class="btn btn-primary" type="button">
+                      Plan first module
+                    </button>
+                    <button class="btn btn-secondary" type="button">
+                      Add structural note
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card--secondary">
+              <header class="card__header card__header--row">
+                <h2 class="card__title">State overview</h2>
+              </header>
+              <div class="card__body card__body--columns">
+                <div class="state-column">
+                  <h3 class="state-column__title">Success</h3>
+                  <p class="state-column__body text-block">
+                    Use clear, quiet confirmation. Summarise what is now true and
+                    provide the next deliberate step.
+                  </p>
+                </div>
+                <div class="state-column">
+                  <h3 class="state-column__title">Warning</h3>
+                  <p class="state-column__body text-block">
+                    Highlight risk without urgency theatre. Offer a single, specific
+                    action to move forward or exit safely.
+                  </p>
+                </div>
+                <div class="state-column">
+                  <h3 class="state-column__title">Error</h3>
+                  <p class="state-column__body text-block">
+                    Explain what happened, why it matters, and how to recover.
+                    The fault is never with the person using the system.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Secondary Panel (30%) -->
+          <aside class="secondary-panel">
+            <div class="card card--secondary">
+              <header class="card__header">
+                <h2 class="card__title">Step guidance</h2>
+                <p class="card__subtitle">
+                  Keep each step narrow, calm, and observable.
+                </p>
+              </header>
+              <div class="card__body">
+                <p class="secondary-panel__text text-block">
+                  Use this panel to describe intent, acceptance criteria, and proof
+                  expectations for the current step. Favour clarity over persuasion.
+                </p>
+              </div>
+            </div>
+
+            <div class="card card--secondary secondary-panel__prompt-card">
+              <header class="card__header">
+                <h2 class="card__title">Build prompt</h2>
+                <p class="card__subtitle">
+                  A copyable brief for your build agent.
+                </p>
+              </header>
+              <div class="card__body">
+                <label class="field">
+                  <span class="field__label">Prompt</span>
+                  <textarea
+                    class="field__control field__control--textarea"
+                    rows="6"
+                    placeholder="Describe the next precise outcome you want KodNest to assemble."
+                  ></textarea>
+                </label>
+                <div class="secondary-panel__actions">
+                  <button class="btn btn-primary" type="button">
+                    Copy
+                  </button>
+                  <button class="btn btn-secondary" type="button">
+                    Build in Lovable
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card card--secondary secondary-panel__prompt-card">
+              <header class="card__header">
+                <h2 class="card__title">Outcome feedback</h2>
+              </header>
+              <div class="card__body">
+                <div class="secondary-panel__feedback-buttons">
+                  <button class="btn btn-secondary" type="button">
+                    It Worked
+                  </button>
+                  <button class="btn btn-secondary" type="button">
+                    Error
+                  </button>
+                  <button class="btn btn-secondary" type="button">
+                    Add Screenshot
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+      <!-- Proof Footer -->
+      <footer class="proof-footer">
+        <div class="proof-footer__inner">
+          <div class="proof-footer__title-block">
+            <h2 class="proof-footer__title">Proof of completion</h2>
+            <p class="proof-footer__subtitle text-block">
+              Each check requires a short note or link that demonstrates the state is real,
+              not assumed.
+            </p>
+          </div>
+          <div class="proof-footer__grid">
+            <div class="proof-item">
+              <label class="proof-item__label">
+                <input type="checkbox" class="proof-item__checkbox" />
+                <span class="proof-item__text">UI Built</span>
+              </label>
+              <input
+                type="text"
+                class="field__control proof-item__input"
+                placeholder="Link, screenshot path, or short note"
+              />
+            </div>
+            <div class="proof-item">
+              <label class="proof-item__label">
+                <input type="checkbox" class="proof-item__checkbox" />
+                <span class="proof-item__text">Logic Working</span>
+              </label>
+              <input
+                type="text"
+                class="field__control proof-item__input"
+                placeholder="Describe the observed behaviour"
+              />
+            </div>
+            <div class="proof-item">
+              <label class="proof-item__label">
+                <input type="checkbox" class="proof-item__checkbox" />
+                <span class="proof-item__text">Test Passed</span>
+              </label>
+              <input
+                type="text"
+                class="field__control proof-item__input"
+                placeholder="Test reference or run output"
+              />
+            </div>
+            <div class="proof-item">
+              <label class="proof-item__label">
+                <input type="checkbox" class="proof-item__checkbox" />
+                <span class="proof-item__text">Deployed</span>
+              </label>
+              <input
+                type="text"
+                class="field__control proof-item__input"
+                placeholder="Environment, URL, or ticket"
+              />
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
+
