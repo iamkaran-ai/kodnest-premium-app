@@ -22,7 +22,9 @@ export default function AnalyzePage() {
       plan: analysis.plan,
       checklist: analysis.checklist,
       questions: analysis.questions,
+      baseReadinessScore: analysis.readinessScore,
       readinessScore: analysis.readinessScore,
+      skillConfidenceMap: {},
     };
 
     saveAnalysisEntry(entry);

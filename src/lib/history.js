@@ -26,6 +26,32 @@ export function saveAnalysisEntry(entry) {
   window.localStorage.setItem(SELECTED_ID_KEY, entry.id);
 }
 
+export function updateAnalysisEntry(id, updater) {
+  if (!id) {
+    return null;
+  }
+
+  const history = getHistory();
+  let updatedEntry = null;
+
+  const next = history.map((item) => {
+    if (item.id !== id) {
+      return item;
+    }
+
+    const nextValue = typeof updater === "function" ? updater(item) : { ...item, ...updater };
+    updatedEntry = nextValue;
+    return nextValue;
+  });
+
+  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  if (updatedEntry) {
+    window.localStorage.setItem(SELECTED_ID_KEY, updatedEntry.id);
+  }
+
+  return updatedEntry;
+}
+
 export function setSelectedAnalysisId(id) {
   window.localStorage.setItem(SELECTED_ID_KEY, id);
 }
