@@ -17,6 +17,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
+import AnalyzePage from "./pages/AnalyzePage";
+import HistoryPage from "./pages/HistoryPage";
+import ResultsPage from "./pages/ResultsPage";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -370,10 +373,16 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/dashboard" element={<DashboardShell />}>
         <Route index element={<DashboardHome />} />
-        <Route path="practice" element={<PagePlaceholder title="Practice" />} />
-        <Route path="assessments" element={<PagePlaceholder title="Assessments" />} />
+        <Route path="practice" element={<AnalyzePage />} />
+        <Route path="assessments" element={<HistoryPage />} />
         <Route path="resources" element={<PagePlaceholder title="Resources" />} />
         <Route path="profile" element={<PagePlaceholder title="Profile" />} />
+      </Route>
+      <Route path="/results" element={<DashboardShell />}>
+        <Route index element={<ResultsPage />} />
+      </Route>
+      <Route path="/history" element={<DashboardShell />}>
+        <Route index element={<HistoryPage />} />
       </Route>
     </Routes>
   );
